@@ -37,7 +37,14 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+
+
+    # Third-Party Apps (Installed Python Packages)
     'rest_framework',
+    'rest_framework_simplejwt',
+    'django_filters',
+
+    # Local Apps
     'vehicles.apps.VehiclesConfig'
 ]
 
@@ -118,3 +125,19 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
 
 STATIC_URL = 'static/'
+
+
+# --- EXTRA DJANGO CONFIGURATIONS ---
+# Sets the default ID type to BigAutoField to support billions of database rows (modern 64-bit)
+DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+
+# --- DJANGO REST FRAMEWORK CONFIGURATIONS ---
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': (
+        # Main authentication method for the Android Application
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
+        # Session authentication allows to still log in via the Browsable API web page
+        'rest_framework.authentication.SessionAuthentication',
+    )
+}

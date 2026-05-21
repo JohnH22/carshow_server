@@ -15,8 +15,22 @@ Including another URLconf
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
 from django.contrib import admin
-from django.urls import path
+from django.urls import path, include
+from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
 urlpatterns = [
     path('admin/', admin.site.urls),
+
+    # Include all URLs from the vehicles application
+    path('api/', include('vehicles.urls')),
+
+    # Enables the Login/Logout buttons in the Django Rest Framework browsable API web page
+    path('api-auth/', include('rest_framework.urls')),
+
+    # JWT Authentication Endpoints for Android.
+    # Android sends username/password here to get Access & Refresh Tokens
+    path('api/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
+
+    # Android sends the Refresh Token here to get a brand new Access Token automatically
+    path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
 ]
