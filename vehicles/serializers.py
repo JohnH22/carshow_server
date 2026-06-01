@@ -1,6 +1,6 @@
 from django.contrib.auth.models import User
 from rest_framework import serializers
-from vehicles.models import Vehicle, Review
+from vehicles.models import Vehicle, Review, VehicleImage
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -13,6 +13,13 @@ class UserSerializer(serializers.ModelSerializer):
         model = User
         fields = ('id', 'username', 'email', 'vehicles', 'reviews')
 
+
+# Serializer for the VehicleImage model
+# Converts multiple image entries into nested JSON objects
+class VehicleImageSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = VehicleImage
+        fields = ['image_url']
 
 
 # Serializer for the Review model
@@ -31,6 +38,8 @@ class ReviewSerializer(serializers.ModelSerializer):
 # Serializer for the Vehicle model
 # Includes nested reviews to provide full details to the Android app
 class VehicleSerializer(serializers.ModelSerializer):
+    # Fetches all images associated with the vehicle using the related_name="images"
+    images = VehicleImageSerializer(many=True, read_only=True)
     # This fetches all reviews associated with the vehicle using the related_name="reviews"
     # many=True means a vehicle can have multiple reviews
     # read_only=True means we don't look for reviews data when creating a vehicle
@@ -44,9 +53,9 @@ class VehicleSerializer(serializers.ModelSerializer):
         model = Vehicle
         # Listing all fields to ensure exact mapping with Android's CarEntry
         fields = [
-            'id', 'brand', 'model_name', 'category', 'year', 'price',
-            'price_negotiable', 'image_url', 'description', 'engine',
-            'horsepower', 'drivetrain', 'transmission', 'torque',
+            'id', 'owner','brand', 'model_name', 'category', 'year', 'price',
+            'price_negotiable', 'images', 'description', 'engine',
+            'fuel_type', 'drivetrain', 'transmission', 'torque',
             'consumption', 'mileage', 'interior_color', 'exterior_color',
             'wheel_size', 'doors', 'passengers', 'is_right_hand_drive',
             'location', 'seller_type', 'video_url', 'reviews'

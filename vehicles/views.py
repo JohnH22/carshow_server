@@ -1,7 +1,7 @@
 from django.shortcuts import render
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import generics, permissions, filters
-from vehicles.models import Vehicle, Review
+from vehicles.models import Vehicle, Review, VehicleImage
 from vehicles.permissions import IsOwnerOrReadOnly
 from vehicles.serializers import VehicleSerializer, ReviewSerializer, UserSerializer
 from django.contrib.auth.models import User
@@ -32,22 +32,70 @@ class VehicleList(generics.ListCreateAPIView):
     # Enable both Filtering, Text Search and Ordering/Sorting
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
 
-    # Exact match filters (e.g., /api/vehicles/?brand=BMW)
-    filterset_fields = ['brand', 'category', 'year', 'location', 'owner']
+    # ADVANCED FILTERING (Using a Dictionary instead of a List)
+    filterset_fields = {
+        'brand': ['exact'],
+        'category': ['exact'],
+        'seller_type': ['exact'],
+        'location': ['exact'],
+        'owner': ['exact'],
+        'transmission': ['exact'],
+        'drivetrain': ['exact'],
+        'exterior_color': ['exact'],
+        'interior_color': ['exact'],
+
+        # Boolean Filters (True/False)
+        'price_negotiable': ['exact'],
+        'is_right_hand_drive': ['exact'],
+
+        # Enables Range Filtering for Price, Year, Mileage, Horsepower, Torque
+        'price': ['exact', 'gte', 'lte'],
+        'year': ['exact', 'gte', 'lte'],
+        'mileage': ['exact', 'gte', 'lte'],
+        'horsepower': ['exact', 'gte', 'lte'],
+        'torque': ['exact', 'gte', 'lte'],
+
+        # Enables Range Filtering for Numeric Fields
+        'engine': ['exact', 'gte', 'lte'],  # Allows: ?engine__gte=1400&engine__lte=2000
+        'consumption': ['exact', 'gte', 'lte'],  # Allows: ?consumption__lte=6.5
+
+        # Enables Range Filtering for Dimensions/Capacity
+        'doors': ['exact', 'gte', 'lte'],
+        'passengers': ['exact', 'gte', 'lte'],
+        'wheel_size': ['exact', 'gte', 'lte'],
+    }
 
     # Free text search fields (e.g., /api/vehicles/?search=Corolla)
-    # The "=" symbol means we want an EXACT match for the brand if searched
-    search_fields = ['=brand', 'model_name', 'description']
+    search_fields = ['brand', 'model_name', 'description', 'location']
 
     # Fields that the user/Android app is allowed to sort by
-    ordering_fields = ['price', 'year', 'brand', 'created_at']
+    ordering_fields = ['price', 'year', 'mileage', 'horsepower', 'engine', 'id']
 
     # Default ordering when no parameter is passed (e.g., newest first)
-    ordering = ('-created_at',)
+    ordering = ('-id',)
 
     def perform_create(self, serializer):
-        # Overrides perform_create to inject the current request user as the owner
-        serializer.save(owner=self.request.user)
+        # Save the vehicle and automatically assign the logged-in user as the owner
+        vehicle = serializer.save(owner=self.request.user)
+
+
+        # Get the images array sent by the Android app from the raw request data
+        # Bypasses PyCharm's strict type warning since 'data' is injected dynamically by DRF
+        # noinspection PyUnresolvedReferences
+        images_data = self.request.data.get('images', [])
+
+        # Process each image entry to populate the separate VehicleImage table
+        for image_data in images_data:
+            # Handle both scenarios: if Android sends a list of strings ["url1", "url2"]
+            # or a list of objects [{"image_url": "url1"}]
+            if isinstance(image_data, dict):
+                url = image_data.get('image_url')
+            else:
+                url = image_data
+
+                # If a valid URL exists, create a new row linked to this vehicle (One-to-Many)
+                if url:
+                    VehicleImage.objects.create(vehicle=vehicle, image_url=url)
 
 
 class VehicleDetail(generics.RetrieveUpdateDestroyAPIView):
@@ -59,6 +107,28 @@ class VehicleDetail(generics.RetrieveUpdateDestroyAPIView):
     serializer_class = VehicleSerializer
     # Anyone can view, but only the owner can PUT/PATCH/DELETE
     permission_classes = [permissions.IsAuthenticatedOrReadOnly, IsOwnerOrReadOnly]
+
+    def perform_update(self, serializer):
+        # Save the updated core vehicle fields (brand, model, price, etc.)
+        vehicle = serializer.save()
+
+        # Extract the new list of images from the raw request data
+        # Bypasses PyCharm's strict type warning since 'data' is injected dynamically by DRF
+        # noinspection PyUnresolvedReferences
+        images_data = self.request.data.get('images', None)
+
+        # If the 'images' key was provided in the update request, refresh the image set
+        if images_data is not None:
+            # Clear all previously linked images to prevent "orphan" records in the database
+            vehicle.images.all().delete()
+
+            # Loop through the new list to save the updated image URLs in the database
+            for image_data in images_data:
+                # Support both formats: a nested JSON object or a raw string URL
+                url = image_data.get('image_url') if isinstance(image_data, dict) else image_data
+                # If a valid URL exists, create a new row linked to this vehicle (One-to-Many)
+                if url:
+                    VehicleImage.objects.create(vehicle=vehicle, image_url=url)
 
 
 

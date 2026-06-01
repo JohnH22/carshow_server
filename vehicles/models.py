@@ -36,16 +36,16 @@ class Vehicle(models.Model):
     year = models.IntegerField()
     price = models.DecimalField(max_digits=12, decimal_places=2) # Double in Android
     price_negotiable = models.BooleanField(default=False)
-    image_url = models.URLField(max_length=500) # URL loaded as Bitmap via Glide/Coil in Android
     description = models.TextField(default="No description provided.")
 
 # --- Technical Specifications ---
-    engine = models.CharField(max_length=50, default='N/A')
+    engine = models.IntegerField(default=0) # Saved as pure number for range filtering
+    fuel_type = models.CharField(max_length=50, default="Gasoline")
     horsepower = models.IntegerField(default=0)
     drivetrain = models.CharField(max_length=10, default="FWD")
     transmission = models.CharField(max_length=20, default="Manual")
     torque = models.IntegerField(default=0)
-    consumption = models.CharField(max_length=30, default="0.0 l/100km")
+    consumption = models.DecimalField(max_digits=4, decimal_places=1, default=0.0) # Saved as float (e.g., 5.5, 8.1) for range filtering
     mileage = models.IntegerField(default=0)
 
 # --- Appearance & Dimensions ---
@@ -65,6 +65,21 @@ class Vehicle(models.Model):
 
     def __str__(self):
         return f"{self.brand} {self.model_name} ({self.year})"
+
+
+# Represents a single image linked to a specific vehicle
+# Enables multiple image URLs per vehicle entry (One-To-Many Relationship)
+class VehicleImage(models.Model):
+    # Foreign key mapping back to the main Vehicle
+    # If the vehicle is deleted, all associated images are auto deleted (CASCADE)
+    vehicle = models.ForeignKey(Vehicle, on_delete=models.CASCADE, related_name='images')
+
+    # URL loaded as Bitmap via Glide/Coil in Android
+    image_url = models.URLField(max_length=500)
+
+    def __str__(self):
+        return f"{self.vehicle.brand} {self.vehicle.model_name}"
+
 
 
 
