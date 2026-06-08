@@ -26,7 +26,7 @@ class Vehicle(models.Model):
         ('UNKNOWN', 'Unknown')
     ]
 
-# --- User ----
+# --- User Ownership ----
     owner = models.ForeignKey(User, on_delete=models.CASCADE, related_name='vehicles')
 
 # --- Core Vehicle Specifications ---
@@ -74,8 +74,12 @@ class VehicleImage(models.Model):
     # If the vehicle is deleted, all associated images are auto deleted (CASCADE)
     vehicle = models.ForeignKey(Vehicle, on_delete=models.CASCADE, related_name='images')
 
-    # URL loaded as Bitmap via Glide/Coil in Android
-    image_url = models.URLField(max_length=500)
+    # Supports both remote URLs (e.g., from external APIs) and
+    # Local paths for rendering as Bitmaps via Glide/Coil in the Android app.
+    image_url = models.TextField(blank=True, null=True)
+
+    # Not used yet
+    image_file = models.ImageField(upload_to='vehicles/', blank=True, null=True)
 
     def __str__(self):
         return f"{self.vehicle.brand} {self.vehicle.model_name}"

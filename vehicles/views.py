@@ -1,3 +1,5 @@
+from django.db.models import Avg
+from django.db.models.functions import Coalesce
 from django.shortcuts import render
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import generics, permissions, filters
@@ -7,6 +9,7 @@ from vehicles.serializers import VehicleSerializer, ReviewSerializer, UserSerial
 from django.contrib.auth.models import User
 
 
+# --- USER VIEWS ---
 class UserList(generics.ListAPIView):
     # Handles GET requests to list all users in the system
     queryset = User.objects.all()
@@ -17,6 +20,18 @@ class UserDetail(generics.RetrieveAPIView):
     # Handles GET requests to fetch details of a specific user by ID
     queryset = User.objects.all()
     serializer_class = UserSerializer
+
+
+
+class UserRegister(generics.CreateAPIView):
+    # Allows new user registration without requiring an existing login
+    # Handles POST requests to register a new user
+    queryset = User.objects.all()
+    serializer_class = UserSerializer
+    # Anyone can register, no authentication required
+    permission_classes = [permissions.AllowAny]
+
+
 
 
 # --- VEHICLE VIEWS ---
@@ -33,16 +48,19 @@ class VehicleList(generics.ListCreateAPIView):
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
 
     # ADVANCED FILTERING (Using a Dictionary instead of a List)
+    # Mapping fields for advanced filtering (e.g., ?price__gte=1000)
     filterset_fields = {
-        'brand': ['exact'],
-        'category': ['exact'],
-        'seller_type': ['exact'],
-        'location': ['exact'],
+        'brand': ['exact', 'icontains', 'iexact'],
+        'model_name': ['exact', 'icontains', 'iexact'],
+        'category': ['exact', 'icontains', 'iexact'],
+        'seller_type': ['exact', 'icontains', 'iexact'],
+        'location': ['exact', 'icontains', 'iexact'],
+        'fuel_type': ['exact', 'icontains', 'iexact'],
         'owner': ['exact'],
-        'transmission': ['exact'],
-        'drivetrain': ['exact'],
-        'exterior_color': ['exact'],
-        'interior_color': ['exact'],
+        'transmission': ['exact', 'icontains', 'iexact'],
+        'drivetrain': ['exact', 'icontains', 'iexact'],
+        'exterior_color': ['exact', 'icontains', 'iexact'],
+        'interior_color': ['exact', 'icontains', 'iexact'],
 
         # Boolean Filters (True/False)
         'price_negotiable': ['exact'],
@@ -59,6 +77,7 @@ class VehicleList(generics.ListCreateAPIView):
         'engine': ['exact', 'gte', 'lte'],  # Allows: ?engine__gte=1400&engine__lte=2000
         'consumption': ['exact', 'gte', 'lte'],  # Allows: ?consumption__lte=6.5
 
+
         # Enables Range Filtering for Dimensions/Capacity
         'doors': ['exact', 'gte', 'lte'],
         'passengers': ['exact', 'gte', 'lte'],
@@ -69,12 +88,26 @@ class VehicleList(generics.ListCreateAPIView):
     search_fields = ['brand', 'model_name', 'description', 'location']
 
     # Fields that the user/Android app is allowed to sort by
-    ordering_fields = ['price', 'year', 'mileage', 'horsepower', 'engine', 'id']
+    ordering_fields = ['price', 'year', 'mileage', 'horsepower', 'engine', 'id', 'brand', 'model_name', 'consumption', 'average_rating']
 
     # Default ordering when no parameter is passed (e.g., newest first)
     ordering = ('-id',)
 
+
+    # Annotate with average rating for sorting and display
+    def get_queryset(self):
+        return Vehicle.objects.annotate(
+            average_rating=Coalesce(Avg('reviews__rating'), 0.0)
+        )
+
+
+    # Custom creation logic to handle nested image URLs
     def perform_create(self, serializer):
+        # --- DEBUG START ---
+        if not serializer.is_valid():
+            print("DEBUG ERROR (POST):", serializer.errors)
+        # --- DEBUG END ---
+
         # Save the vehicle and automatically assign the logged-in user as the owner
         vehicle = serializer.save(owner=self.request.user)
 
@@ -108,7 +141,15 @@ class VehicleDetail(generics.RetrieveUpdateDestroyAPIView):
     # Anyone can view, but only the owner can PUT/PATCH/DELETE
     permission_classes = [permissions.IsAuthenticatedOrReadOnly, IsOwnerOrReadOnly]
 
+
+
+    # Custom update logic to refresh vehicle images efficiently
     def perform_update(self, serializer):
+        # --- DEBUG START ---
+        if not serializer.is_valid():
+            print("DEBUG ERROR (PUT):", serializer.errors)
+        # --- DEBUG END ---
+
         # Save the updated core vehicle fields (brand, model, price, etc.)
         vehicle = serializer.save()
 
@@ -141,6 +182,16 @@ class ReviewList(generics.ListCreateAPIView):
     # Only logged-in users can write a review
     permission_classes = [permissions.IsAuthenticatedOrReadOnly]
 
+    filter_backends = [DjangoFilterBackend]
+    filterset_fields = ['vehicle']
+
+    def get_queryset(self):
+        queryset = Review.objects.all()
+        vehicle_id = self.request.GET.get('vehicle', None)
+        if vehicle_id is not None:
+            queryset = queryset.filter(vehicle_id=vehicle_id)
+        return queryset
+
     def perform_create(self, serializer):
         # Overrides perform_create to inject the current request user as the review author
         serializer.save(user=self.request.user)
@@ -152,3 +203,5 @@ class ReviewDetail(generics.RetrieveUpdateDestroyAPIView):
     serializer_class = ReviewSerializer
     # Only the author can edit or delete their review
     permission_classes = [permissions.IsAuthenticatedOrReadOnly, IsOwnerOrReadOnly]
+
+

@@ -8,6 +8,9 @@ urlpatterns = [
     path('users/', views.UserList.as_view(), name='user-list'),
     path('users/<int:pk>/', views.UserDetail.as_view(), name='user-detail'),
 
+    # Endpoint for User Registration
+    path('register/', views.UserRegister.as_view(), name='user-register'),
+
     # Endpoints for Vehicles
     path('vehicles/', views.VehicleList.as_view(), name='vehicle-list'),
     path('vehicles/<int:pk>/', views.VehicleDetail.as_view(), name='vehicle-detail'),
