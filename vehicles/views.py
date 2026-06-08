@@ -126,9 +126,10 @@ class VehicleList(generics.ListCreateAPIView):
             else:
                 url = image_data
 
+
                 # If a valid URL exists, create a new row linked to this vehicle (One-to-Many)
-                if url:
-                    VehicleImage.objects.create(vehicle=vehicle, image_url=url)
+            if url:
+                VehicleImage.objects.create(vehicle=vehicle, image_url=url)
 
 
 class VehicleDetail(generics.RetrieveUpdateDestroyAPIView):
